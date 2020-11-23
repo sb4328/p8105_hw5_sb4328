@@ -1,0 +1,125 @@
+---
+title: "Homework 3"
+author: Sanjana Batabyal 
+output: github_document
+---
+
+This is my solution to Homework 3.
+
+```{r}
+library(tidyverse)
+library(magrittr)
+library(p8105.datasets)
+library(dplyr)
+library(rnoaa)
+library(patchwork)
+```
+
+## Problem 1
+Loading the data.
+```{r}
+data("instacart")
+```
+
+```{r}
+instacart %>%
+  count(aisle) %>%
+  arrange(desc(n))
+```
+There are 134 aisles and the aisles that are most ordered from are fresh vegetables (with 150,609 items) and fresh fruits (with 150,473 items).
+
+Making a plot that shows the number of items ordered in each aisle.
+```{r}
+instacart %>%
+  count(aisle) %>%
+  filter(n > 10000) %>%
+  mutate(
+    aisle = factor(aisle),
+    aisle = fct_reorder(aisle, n)
+  ) %>%
+  ggplot(aes(x=aisle, y=n)) +
+  geom_point()
+```
+Making a table showing the three most popular items in each of the aisles “baking ingredients”, “dog food care”, and “packaged vegetables fruits”.
+```{r}
+instacart %>%
+  filter(aisle %in% c("baking ingredients", "dog food care", "packaged vegetable fruits")) %>%
+  group_by(aisle) %>%
+  count(product_name) %>%
+  mutate(rank = min_rank(desc(n)))%>%
+  filter(rank<4) %>%
+  arrange(aisle, rank) %>%
+  knitr::kable()
+```
+Making a table showing the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week.
+```{r}
+instacart %>%
+  filter(product_name %in% c("Pink Lady Apples", "Coffee Ice Cream")) %>%
+  group_by(product_name, order_dow) %>%
+  summarize(mean_hour=mean(order_hour_of_day)) %>%
+  pivot_wider(
+    names_from = order_dow,
+    values_from = mean_hour
+  )
+```
+
+##Problem 2
+Cleaning data.
+```{r}
+accel_df=read.csv("./data/accel_data.csv")
+```
+
+Creating a total activity variable for each day, and create a table showing these totals.
+```{r}
+```
+
+Make a single-panel plot that shows the 24-hour activity time courses for each day and use color to indicate day of the week. 
+```{r}
+accel_df=read.csv("./data/accel_data.csv") %>%
+  ggplot(aes(x=day, y=activity)) +
+  geom_point()
+```
+##Problem 3
+Data importation and cleaning/wrangling.
+```{r}
+data("ny_noaa")
+```
+```{r}
+ny_noaa %>% 
+  slice_sample(n=1000) %>%
+  separate(date, into = c("year", "month", "day"), convert = TRUE) %>%
+  mutate(tmax = as.numeric(tmax)/10,tmin = as.numeric(tmin)/10)
+```
+The most commonly recorded value for snowfall is 0 mm because this data set records information from throughout the year -- and since it only snows during the late-fall and winter, for a majority of the year, there will be no snowfall.
+
+Making a two-panel plot showing the average max temperature in January and in July in each station across years.
+```{r}
+ny_noaa %>%
+  slice_sample(n=1000) %>%
+  mutate(tmax = as.numeric(tmax)/10,tmin = as.numeric(tmin)/10) %>%
+  separate(date, into = c("year", "month", "day"), convert = TRUE) %>%
+  filter(month==1|month==7) %>%
+  ggplot(aes(x=year, y=tmax), color=year) +
+  geom_point() +
+  facet_grid(. ~month)
+```
+Making a two-panel plot showing tmax vs tmin for the full dataset and a plot showing the distribution of snowfall values greater than 0 and less than 100 separately by year.
+```{r}
+temp=
+ny_noaa %>%
+  slice_sample(n=1000) %>%
+  mutate(tmax = as.numeric(tmax)/10,tmin = as.numeric(tmin)/10) %>%
+  separate(date, into = c("year", "month", "day"), convert = TRUE) %>%
+  ggplot(aes(x=tmin, y=tmax), color=years) +
+  geom_point()
+
+snowfall=
+ny_noaa %>%
+  slice_sample(n=1000) %>%
+  separate(date, into = c("year", "month", "day"), convert = TRUE) %>%
+  filter(snow>0|snow<100) %>%
+  ggplot(aes(x=year)) +
+  geom_histogram()
+
+temp+snowfall
+```
