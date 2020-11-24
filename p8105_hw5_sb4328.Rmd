@@ -28,6 +28,8 @@ homicide=
   select(city_state, resolved) %>%
   filter(city_state != "Tulsa_AL")
 ```
+The raw data comes from the Washington Post and contains detailed information about the homicides in 50 U.S. cities from 2012 to 2017. The dataset contains ``r nrow(homicide)` rows. The data contains information on the location of the homicide; the name of the victim; his/her race, age, and ex; and the conclusion of the case (whether it was resolved or not or if it is still open).
+
 Filtering the data to group total number of homicides and total number of unsolved homicides by location.
 ```{r}
 agg_hom=
@@ -60,7 +62,10 @@ agg_hom %>%
 ```
 Plotting the results from the previous step.
 ```{r}
-agg_hom %>%
+hom_results %>%
+  mutate(city_state=fct_reorder(city_state, estimate)) %>%
   ggplot(aes(x=city_state, y=estimate)) +
-  geom_point()
+  geom_point() +
+  geom_errorbar(aes(ymin=conf.low, ymax=conf.high)) +
+  theme(axis.text = element_text(angle=90, vjust=0.5, hjust=1))
 ```
