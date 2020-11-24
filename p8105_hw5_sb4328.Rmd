@@ -23,7 +23,6 @@ options(
 )
 scale_colour_discrete = scale_color_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
-
 set.seed(1)
 ```
 
@@ -85,8 +84,48 @@ hom_results %>%
 ```
 
 ## Problem 2
-Creating a tidy dataframe using iteration in order to import and clean the datafiles.
+Creating a tidy dataframe using iteration in order to import and clean the datafiles. Then splitting the data set into control and experimental arms.
 ```{r}
-homicide=
-  read_csv("data/homicide-data.csv")
+p2data=
+  tibble(
+    path=list.files("p2data")
+  ) %>%  
+  mutate(
+    path1=str_c("p2data/", path),
+    data=map(path1, read_csv)
+    ) %>% 
+  unnest(data) %>%
+  separate(
+    path1,
+    into = c(NA, "Arm", "Arm_Num", NA)
+  ) %>%
+  pivot_longer(
+    starts_with("week"),
+    names_to = "week",
+    values_to = "values"
+  ) %>%
+  mutate(
+    week = as.numeric(sub("week_", "", week))
+  )
+control= 
+  p2data %>% 
+  select(Arm, Arm_Num, week, values) %>%
+  filter(Arm=="con")
+experiment=
+  p2data %>% 
+  select(Arm, Arm_Num, week, values) %>%
+  filter(Arm=="exp")
+```
+Creating a spaghetti plot that shows observations on each subject over time.
+```{r}
+spaghetti=ggplot(control, aes(x=week, y=values, group=Arm)) +
+  geom_line() + 
+  geom_line(data=experiment, color="blue")
+
+spaghetti + 
+  labs(
+    title="Observations on Each Subject Over Time",
+    subtitle="Black = Control Group, Blue = Experimental Group",
+    xlab="Week",
+    ylab="Observations")
 ```
