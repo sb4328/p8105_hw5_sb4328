@@ -6,21 +6,17 @@ output: github_document
 
 This is my solution to Homework 5.
 
-```{r setup, include=FALSE}
+```{r setup}
 library(tidyverse)
 library(magrittr)
 library(dplyr)
 library(ggplot2)
-knitr::opts_chunk$set(
-  fig.width = 6,
+knitr::opts_chunk$set(fig.width = 6,
   fig.asp = .6,
-  out.width = "90%"
-)
+  out.width = "90%")
 theme_set(theme_minimal() + theme(legend.position = "bottom"))
-options(
-  ggplot2.continuous.colour = "viridis",
-  ggplot2.continuous.fill = "viridis"
-)
+options(ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis")
 scale_colour_discrete = scale_color_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
 set.seed(1)
@@ -31,13 +27,11 @@ Getting the data from the csv file downloaded from GitHub. Cleaning the data, cr
 ```{r}
 homicide=
   read_csv("data/homicide-data.csv") %>%
-  mutate(
-    city_state=str_c(city, state, sep="_"),
+  mutate(city_state=str_c(city, state, sep="_"),
     resolved=case_when(
     disposition=="Closed without arrest" ~ "unsolved",
     disposition=="Closed by arrest" ~ "solved",
-    disposition=="Open/No arrest" ~ "unsolved")
-  ) %>%
+    disposition=="Open/No arrest" ~ "unsolved")) %>%
   select(city_state, resolved) %>%
   filter(city_state != "Tulsa_AL")
 ```
@@ -88,25 +82,21 @@ Creating a tidy dataframe using iteration in order to import and clean the dataf
 ```{r}
 p2data=
   tibble(
-    path=list.files("p2data")
-  ) %>%  
+    path=list.files("p2data")) %>%  
   mutate(
     path1=str_c("p2data/", path),
-    data=map(path1, read_csv)
-    ) %>% 
+    data=map(path1, read_csv)) %>% 
   unnest(data) %>%
   separate(
     path1,
-    into = c(NA, "Arm", "Arm_Num", NA)
-  ) %>%
+    into = c(NA, "Arm", "Arm_Num", NA)) %>%
   pivot_longer(
     starts_with("week"),
     names_to = "week",
-    values_to = "values"
-  ) %>%
+    values_to = "values") %>%
   mutate(
-    week = as.numeric(sub("week_", "", week))
-  )
+    week = as.numeric(sub("week_", "", week)))
+
 control= 
   p2data %>% 
   select(Arm, Arm_Num, week, values) %>%
@@ -120,12 +110,91 @@ Creating a spaghetti plot that shows observations on each subject over time.
 ```{r}
 spaghetti=ggplot(control, aes(x=week, y=values, group=Arm)) +
   geom_line() + 
-  geom_line(data=experiment, color="blue")
+  geom_line(data=experiment, color="green")
 
 spaghetti + 
-  labs(
-    title="Observations on Each Subject Over Time",
+  labs(title="Observations on Each Subject Over Time",
     subtitle="Black = Control Group, Blue = Experimental Group",
-    xlab="Week",
-    ylab="Observations")
+    x="Week",
+    y="Observations")
 ```
+Looking at the control group (colored in black), we see that their scores tend to go down throughout the week while the experimental group (colored in green) has scores that increase throughout the week. The range of scores is more stable among the control group than the experimental group, but they do have opposite trends.
+
+##Problem 3
+Setting up the simulation, generating 5000 datasets from the model, creating an iteration for mu=1-6, and then creating a sub-dataset that includes when the null was rejected and when we failed to reject it.
+```{r}
+p3sim_setup=function(n=30, mu, sigma=5)
+{input_sim = 
+  tibble(
+  x=rnorm(n=30, mean=mu, sd=5)) %>%
+    t.test() %>%
+    broom::tidy()}
+
+p3sim_1= 
+  rerun(5000, p3sim_setup(n=30, mu=0, sigma=5)) %>% 
+  bind_rows()
+
+p3sim= 
+  tibble(
+  mu=c(0, 1, 2, 3, 4, 5, 6)) %>% 
+  mutate(
+    output=map(.x=mu, ~ rerun(5000, 
+    p3sim_setup(n=30, mu = .x, sigma=5))),
+    results = map(output, bind_rows)) %>% 
+  select(-output) %>%
+  unnest(results) %>% 
+  select(mu, estimate, p.value) %>% 
+  mutate(
+    null_outcome=case_when(
+      p.value <= 0.05~"Rejected",
+      p.value > 0.05~"Fail to Reject"))
+```
+Creating a plot showing the proportion of times the null was rejected (the power of the test) on the y axis and the true value of μ on the x axis.
+```{r}
+p3sim_reject=
+  p3sim%>% 
+  group_by(mu, null_outcome) %>% 
+  filter(null_outcome=="Rejected") %>% 
+  summarize(total=n()) %>% 
+  mutate(prop=total/5000) 
+p3sim_reject %>% 
+  ggplot(aes(x=mu, y=prop)) +
+  geom_point() + geom_smooth() +
+  labs(title="Problem 3 Plot 1",
+    subtitle="Null Rejection Proportion",
+    x="True Value of Mu",
+    y="Null Hypothesis: Rejected (Proportion)")
+```
+We see here that as the true value of mu, or effect size, increases, the proportion of times the null hypothesis was rejected, or power, also increases. This makes sense because we know that a larger effect size contributes to larger power. However, this is not an infinitely positive relationship; we see that power levels off at 1 and this also makes sense because the greatest value power can be is 1.
+
+Making a plot showing the average estimate of μ̂ on the y axis and the true value of μ on the x axis.
+```{r}
+p3sim_average=
+  p3sim%>% 
+  group_by(mu) %>% 
+  filter(null_outcome=="Rejected") %>% 
+  summarize(average=mean(estimate)) 
+p3sim_average %>% 
+  ggplot(aes(x=mu, y=average)) +
+  geom_point() + geom_smooth() +
+  labs(title="Problem 3 Plot 2a",
+    subtitle="Average vs. True Value of Mu",
+    x="True Value of Mu",
+    y="Average Estimate of Mu")
+```
+Making a plot of average estimate of μ̂  only in samples for which the null was rejected on the y axis and the true value of μ on the x axis.
+```{r}
+p3sim_average2=
+  p3sim%>% 
+  group_by(mu) %>% 
+  filter(null_outcome=="Rejected") %>% 
+  summarize(average2=mean(estimate))
+p3sim_average2 %>% 
+  ggplot(aes(x=mu, y=average2)) +
+  geom_point() + geom_smooth() +
+  labs(title="Problem 3 Plot 2b",
+    subtitle="Average vs. True Value of Mu (Among Samples with Rejected Null",
+    x="True Value of Mu",
+    y="Average Estimate of Mu")
+```
+Looking at these two plots, we see that the sample average of mu  across tests when the null hypothesis is rejected is approximately equal to the true value of mu. This makes sense because when you have a larger effect size, you have a higher power, and you are more likely to reject the null hypothesis (and the converse of this statement is true as well).
